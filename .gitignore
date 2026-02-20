@@ -1,0 +1,115 @@
+# ========================
+# Environment & Secrets
+# ========================
+.env
+.env.*
+!.env.example
+
+# ========================
+# Node / SvelteKit
+# ========================
+node_modules/
+.svelte-kit/
+build/
+dist/
+.vercel/
+.netlify/
+.output/
+
+# Package manager locks — keep one, ignore others
+# (uncomment whichever you're NOT using)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ========================
+# Vite
+# ========================
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# ========================
+# Tauri / Rust
+# ========================
+src-tauri/target/
+src-tauri/gen/
+
+# Tauri build artifacts
+*.app
+*.dmg
+*.deb
+*.rpm
+*.msi
+*.exe
+*.AppImage
+
+# ========================
+# Rust (general)
+# ========================
+**/*.rs.bk
+Cargo.lock
+# ^ Remove this line if you want to commit Cargo.lock.
+# For a binary/app (which Tauri is), committing Cargo.lock is recommended.
+
+# ========================
+# sqlx
+# ========================
+# sqlx prepare cache — commit this if you want offline query checking in CI
+# .sqlx/
+
+# ========================
+# PostgreSQL
+# ========================
+*.sql.bak
+pgdata/
+postgres-data/
+
+# ========================
+# WebStorm / JetBrains IDE
+# ========================
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# ========================
+# macOS
+# ========================
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# ========================
+# Windows
+# ========================
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ========================
+# Linux
+# ========================
+*~
+.fuse_hidden*
+.nfs*
+
+# ========================
+# Logs & Temp Files
+# ========================
+*.log
+*.tmp
+*.temp
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ========================
+# TypeScript
+# ========================
+*.tsbuildinfo

@@ -1,3 +1,3 @@
 <div class="page-placeholder">
-  <p>[ Active Project ]</p>
+  <p>[ Projects ]</p>
 </div>

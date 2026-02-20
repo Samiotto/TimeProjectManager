@@ -1,40 +1,48 @@
 @import "tailwindcss";
 @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Mono:wght@300;400;500&family=Lato:wght@300;400;700&display=swap");
 
+/* ── Variables ─────────────────────────────────────────────── */
 :root {
-  --bg: #1a1714;
-  --surface: #231f1b;
-  --surface2: #2c2722;
-  --tab-idle: #1e1a16;
-  --tab-active: #2e2821;
-  --border: #3a342c;
-  --amber: #d4921e;
-  --amber-dim: #8a5f12;
-  --amber-glow: #f0a830;
-  --text-hi: #ede4d4;
-  --text-mid: #9e9080;
-  --text-lo: #5a5048;
+  --bg:           #1a1714;
+  --surface:      #231f1b;
+  --surface2:     #2c2722;
+  --tab-idle:     #1e1a16;
+  --tab-active:   #2e2821;
+  --border:       #3a342c;
+  --amber:        #d4921e;
+  --amber-dim:    #8a5f12;
+  --amber-glow:   #f0a830;
+  --text-hi:      #ede4d4;
+  --text-mid:     #9e9080;
+  --text-lo:      #5a5048;
+  --red:          #c0503a;
+  --green:        #6a9e60;
+  --radius:       6px;
+  --font-display: 'Playfair Display', serif;
+  --font-mono:    'DM Mono', monospace;
+  --font-body:    'Lato', sans-serif;
+  --transition:   0.38s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-*,
-*::before,
-*::after {
+/* ── Reset ─────────────────────────────────────────────────── */
+*, *::before, *::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-html,
-body {
+html, body {
   height: 100vh;
   overflow: hidden;
   background: var(--bg);
   color: var(--text-hi);
-  font-family: "Lato", sans-serif;
+  font-family: var(--font-body);
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── Grain overlay ─────────────────────────────────────────── */
 body::before {
   content: "";
   position: fixed;
@@ -47,14 +55,508 @@ body::before {
   background-size: 256px 256px;
 }
 
-.page-placeholder {
+/* ── Scrollbars ────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Page header ───────────────────────────────────────────── */
+.page-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--amber-dim);
+  margin-bottom: 10px;
+}
+
+.page-title {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--text-hi);
+  margin-bottom: 6px;
+  line-height: 1.1;
+}
+
+.page-desc {
+  font-size: 13px;
+  color: var(--text-mid);
+  line-height: 1.6;
+  max-width: 520px;
+  margin-bottom: 32px;
+}
+
+/* ── Timer ─────────────────────────────────────────────────── */
+.timer-display {
+  font-family: var(--font-mono);
+  font-size: 56px;
+  font-weight: 300;
+  color: var(--amber-glow);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin-bottom: 8px;
+  text-shadow: 0 0 40px rgba(212, 146, 30, 0.25);
+}
+
+.timer-display.idle {
+  color: var(--text-lo);
+  text-shadow: none;
+}
+
+.timer-status {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+  margin-bottom: 28px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  height: 100%;
-  font-family: "DM Mono", monospace;
+  gap: 8px;
+}
+
+/* ── Buttons ───────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 20px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
   font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  background: none;
+}
+
+.btn-primary {
+  background: var(--amber);
+  color: var(--bg);
+  border-color: var(--amber);
+}
+.btn-primary:hover {
+  background: var(--amber-glow);
+  border-color: var(--amber-glow);
+  box-shadow: 0 0 18px rgba(212, 146, 30, 0.3);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-mid);
+  border-color: var(--border);
+}
+.btn-ghost:hover {
+  color: var(--text-hi);
+  border-color: var(--text-lo);
+  background: var(--surface);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--red);
+  border-color: var(--border);
+}
+.btn-danger:hover {
+  border-color: var(--red);
+  background: rgba(192, 80, 58, 0.1);
+}
+
+/* ── Status dots ───────────────────────────────────────────── */
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.dot-active {
+  background: var(--amber);
+  box-shadow: 0 0 8px var(--amber);
+  animation: dot-pulse 2s infinite;
+}
+.dot-idle {
+  background: var(--text-lo);
+}
+
+@keyframes dot-pulse {
+  0%, 100% { box-shadow: 0 0 6px var(--amber); opacity: 1; }
+  50%       { box-shadow: 0 0 14px var(--amber-glow); opacity: 0.7; }
+}
+
+/* ── Stat cards ────────────────────────────────────────────── */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 32px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 18px 16px;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+.card:hover {
+  border-color: var(--amber-dim);
+  background: var(--surface2);
+  transform: translateY(-2px);
+}
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--amber);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease;
+}
+.card:hover::before { transform: scaleX(1); }
+
+.card-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-lo);
+  margin-bottom: 8px;
+}
+
+.card-value {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--text-hi);
+  line-height: 1.1;
+}
+
+.card-sub {
+  font-size: 12px;
+  color: var(--text-lo);
+  margin-top: 6px;
+}
+
+/* ── Section header ────────────────────────────────────────── */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--text-lo);
+  white-space: nowrap;
 }
+
+.section-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── Project list ──────────────────────────────────────────── */
+.project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 640px;
+  margin-bottom: 24px;
+}
+
+.project-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.project-row:hover {
+  background: var(--surface2);
+  border-color: var(--amber-dim);
+}
+
+.project-row-name {
+  font-size: 14px;
+  color: var(--text-hi);
+  flex: 1;
+}
+
+.project-row-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-lo);
+}
+
+.project-row-star {
+  font-size: 13px;
+  color: var(--text-lo);
+  transition: color 0.15s;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.project-row-star.lit { color: var(--amber); }
+
+/* ── Empty state ───────────────────────────────────────────── */
+.empty-state {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--text-lo);
+  padding: 20px 0;
+  font-style: italic;
+}
+
+/* ── Note card ─────────────────────────────────────────────── */
+.note-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.note-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.note-card-time {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-lo);
+}
+
+.note-card-tags {
+  display: flex;
+  gap: 6px;
+}
+
+.tag {
+  font-size: 9px;
+  background: rgba(212, 146, 30, 0.12);
+  color: var(--amber);
+  padding: 1px 7px;
+  border-radius: 3px;
+}
+
+.note-card-body {
+  font-size: 13px;
+  color: var(--text-hi);
+  line-height: 1.55;
+}
+
+/* ── Quadrant grid ─────────────────────────────────────────── */
+.quadrant-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 0;
+  width: 100%;
+  max-width: 700px;
+  height: 520px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #1c1812;
+  font-family: var(--font-mono);
+  position: relative;
+}
+
+.quadrant-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 27px,
+    rgba(100, 85, 60, 0.12) 27px,
+    rgba(100, 85, 60, 0.12) 28px
+  );
+  background-size: 100% 28px;
+  background-position: 0 36px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.quadrant {
+  padding: 14px 16px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 2;
+  overflow-y: auto;
+}
+.quadrant:nth-child(2), .quadrant:nth-child(4) { border-right: none; }
+.quadrant:nth-child(3), .quadrant:nth-child(4) { border-bottom: none; }
+
+.quadrant-title {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--text-mid);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--border);
+  margin-bottom: 12px;
+}
+
+.quadrant-item {
+  font-size: 11.5px;
+  color: var(--text-hi);
+  padding: 3px 0;
+  line-height: 1.5;
+}
+.quadrant-item.done {
+  text-decoration: line-through;
+  color: var(--text-lo);
+}
+.quadrant-item.placeholder {
+  color: var(--text-lo);
+  font-style: italic;
+}
+
+/* ── Calendar grid ─────────────────────────────────────────── */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  max-width: 780px;
+}
+
+.cal-day-header {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-lo);
+  text-align: center;
+  padding: 6px 0;
+}
+
+.cal-day {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 6px;
+  min-height: 72px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.cal-day:hover {
+  border-color: var(--amber-dim);
+  background: var(--surface2);
+}
+.cal-day.today {
+  border-color: var(--amber-dim);
+}
+.cal-day.empty {
+  background: transparent;
+  border-color: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+
+.cal-day-num {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-lo);
+  margin-bottom: 5px;
+}
+.cal-day.today .cal-day-num {
+  color: var(--amber);
+}
+
+.cal-chip {
+  font-size: 9px;
+  background: rgba(212, 146, 30, 0.15);
+  color: var(--amber);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Settings ──────────────────────────────────────────────── */
+.settings-group {
+  margin-bottom: 32px;
+}
+
+.settings-group-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--amber-dim);
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(58, 52, 44, 0.4);
+}
+
+.settings-label {
+  font-size: 13px;
+  color: var(--text-hi);
+}
+
+.settings-desc {
+  font-size: 11px;
+  color: var(--text-lo);
+  margin-top: 2px;
+}
+
+/* ── Toggle ────────────────────────────────────────────────── */
+.toggle {
+  width: 36px;
+  height: 20px;
+  background: var(--border);
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+  border: none;
+}
+.toggle.on { background: var(--amber); }
+.toggle::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: var(--text-hi);
+  border-radius: 50%;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.2s;
+}
+.toggle.on::after { transform: translateX(16px); }

@@ -35,7 +35,11 @@
 
   .page-transition {
     height: 100%;
+    overflow-y: auto;
+    padding: 36px 40px;
     animation: page-enter 0.32s ease both;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
   }
 
   @keyframes page-enter {

@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chrono</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Mono:wght@300;400;500&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #1a1714;
+      --surface:     #231f1b;
+      --surface2:    #2c2722;
+      --tab-idle:    #1e1a16;
+      --tab-active:  #2e2821;
+      --border:      #3a342c;
+      --amber:       #d4921e;
+      --amber-dim:   #8a5f12;
+      --amber-glow:  #f0a830;
+      --text-hi:     #ede4d4;
+      --text-mid:    #9e9080;
+      --text-lo:     #5a5048;
+      --red:         #c0503a;
+      --green:       #6a9e60;
+      --tab-w:       52px;
+      --tab-active-w: 220px;
+      --radius:      6px;
+      --font-display: 'Playfair Display', serif;
+      --font-mono:   'DM Mono', monospace;
+      --font-body:   'Lato', sans-serif;
+      --transition:  0.38s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text-hi);
+      font-family: var(--font-body);
+      font-size: 14px;
+      overflow: hidden;
+    }
+
+    /* Subtle grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      background-size: 200px 200px;
+      opacity: 0.35;
+    }
+
+    /* ── App Shell ────────────────────────────────────────────── */
+    #app {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* ── Tab Rail ─────────────────────────────────────────────── */
+    #tab-rail {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      gap: 0;
+      position: relative;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+
+    /* ── Individual Tab ───────────────────────────────────────── */
+    .tab {
+      position: relative;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      overflow: hidden;
+      flex-shrink: 0;
+
+      width: var(--tab-active-w);
+      height: var(--tab-idle-h, 80px);
+      transition:
+        width var(--transition),
+        height var(--transition),
+        background var(--transition),
+        box-shadow var(--transition);
+
+      background: var(--tab-idle);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Tab that is collapsed (idle) */
+    .tab.idle {
+      width: var(--tab-w);
+      flex: 1; /* distribute remaining height evenly among idle tabs */
+    }
+
+    /* Active tab takes natural height — we'll set explicit height via JS */
+    .tab.active {
+      width: var(--tab-active-w);
+      flex: none;
+      background: var(--tab-active);
+      border-right: 1px solid var(--amber-dim);
+      cursor: default;
+    }
+
+    /* Folder tab notch — top-left corner cut */
+    .tab::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 14px; height: 14px;
+      background: var(--bg);
+      clip-path: polygon(0 0, 100% 0, 0 100%);
+      transition: opacity var(--transition);
+      opacity: 0;
+    }
+    .tab.active::before { opacity: 1; }
+
+    /* Amber left stripe on active */
+    .tab::after {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--amber);
+      transform: scaleY(0);
+      transform-origin: bottom;
+      transition: transform var(--transition);
+      border-radius: 0 2px 2px 0;
+    }
+    .tab.active::after { transform: scaleY(1); }
+
+    /* ── Tab Inner Layout ─────────────────────────────────────── */
+    .tab-inner {
+      display: flex;
+      flex-direction: column;
+      padding: 0 0 0 3px;
+      gap: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* Icon + collapsed label row */
+    .tab-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 14px;
+      flex-shrink: 0;
+    }
+
+    .tab-icon {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-lo);
+      transition: color var(--transition);
+    }
+    .tab.active .tab-icon { color: var(--amber); }
+    .tab:hover:not(.active) .tab-icon { color: var(--text-mid); }
+
+    .tab-label-collapsed {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      white-space: nowrap;
+      writing-mode: vertical-lr;
+      transform: rotate(180deg);
+      transition: color var(--transition), opacity var(--transition);
+      opacity: 1;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translateX(-50%) translateY(-50%) rotate(180deg);
+    }
+
+    /* When idle, show vertical label and hide icon */
+    .tab.idle .tab-icon { opacity: 0; position: absolute; }
+    .tab.idle .tab-label-collapsed { opacity: 1; }
+    .tab.active .tab-label-collapsed { opacity: 0; pointer-events: none; }
+    .tab.active .tab-icon { opacity: 1; position: relative; }
+
+    /* Active tab expanded content */
+    .tab-expanded {
+      opacity: 0;
+      transform: translateX(-8px);
+      transition: opacity var(--transition), transform var(--transition);
+      pointer-events: none;
+      padding: 0 14px 16px 14px;
+      overflow: hidden;
+      flex: 1;
+    }
+    .tab.active .tab-expanded {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+    .tab-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-hi);
+      white-space: nowrap;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .tab-subtitle {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+    }
+
+    /* Active header row (icon + title together) */
+    .active-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 18px 14px 10px 14px;
+      flex-shrink: 0;
+    }
+    .tab.idle .active-header { display: none; }
+
+    /* Divider within tab */
+    .tab-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 0 14px 12px 14px;
+      opacity: 0.5;
+      flex-shrink: 0;
+    }
+
+    /* ── Settings tab at bottom ───────────────────────────────── */
+    .tab-spacer { flex: 1; background: var(--tab-idle); border-right: 1px solid var(--border); }
+    .tab-spacer.hidden { display: none; }
+
+    #tab-settings {
+      margin-top: auto;
+    }
+
+    /* ── Main Content Area ────────────────────────────────────── */
+    #content {
+      flex: 1;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .page {
+      position: absolute;
+      inset: 0;
+      padding: 36px 40px;
+      overflow-y: auto;
+      opacity: 0;
+      transform: translateX(16px);
+      pointer-events: none;
+      transition: opacity 0.32s ease, transform 0.32s ease;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .page.active {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+    /* Scrollbar styling */
+    .page::-webkit-scrollbar { width: 6px; }
+    .page::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Page Content Styles ──────────────────────────────────── */
+    .page-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--amber-dim);
+      margin-bottom: 10px;
+    }
+
+    .page-title {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 600;
+      color: var(--text-hi);
+      margin-bottom: 6px;
+      line-height: 1.1;
+    }
+
+    .page-desc {
+      font-size: 13px;
+      color: var(--text-mid);
+      line-height: 1.6;
+      max-width: 520px;
+      margin-bottom: 32px;
+    }
+
+    /* ── Placeholder Cards ────────────────────────────────────── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 18px 16px;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    }
+    .card:hover {
+      border-color: var(--amber-dim);
+      background: var(--surface2);
+      transform: translateY(-2px);
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--amber);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.25s ease;
+    }
+    .card:hover::before { transform: scaleX(1); }
+
+    .card-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      margin-bottom: 8px;
+    }
+
+    .card-value {
+      font-family: var(--font-display);
+      font-size: 22px;
+      color: var(--text-hi);
+      line-height: 1.1;
+    }
+
+    .card-sub {
+      font-size: 12px;
+      color: var(--text-lo);
+      margin-top: 6px;
+    }
+
+    /* ── Timer Display ────────────────────────────────────────── */
+    .timer-display {
+      font-family: var(--font-mono);
+      font-size: 56px;
+      font-weight: 300;
+      color: var(--amber-glow);
+      letter-spacing: -0.02em;
+      line-height: 1;
+      margin-bottom: 8px;
+      text-shadow: 0 0 40px rgba(212, 146, 30, 0.25);
+    }
+
+    .timer-project {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-mid);
+      margin-bottom: 28px;
+    }
+
+    /* ── Buttons ──────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 20px;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .btn-primary {
+      background: var(--amber);
+      color: var(--bg);
+      border-color: var(--amber);
+    }
+    .btn-primary:hover {
+      background: var(--amber-glow);
+      border-color: var(--amber-glow);
+      box-shadow: 0 0 18px rgba(212, 146, 30, 0.3);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-mid);
+      border-color: var(--border);
+    }
+    .btn-ghost:hover {
+      color: var(--text-hi);
+      border-color: var(--text-lo);
+      background: var(--surface);
+    }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--red);
+      border-color: var(--border);
+    }
+    .btn-danger:hover {
+      border-color: var(--red);
+      background: rgba(192, 80, 58, 0.1);
+    }
+
+    /* ── Status dot ───────────────────────────────────────────── */
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .dot-active {
+      background: var(--amber);
+      box-shadow: 0 0 8px var(--amber);
+      animation: pulse 2s infinite;
+    }
+    .dot-idle { background: var(--text-lo); }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 6px var(--amber); opacity: 1; }
+      50%       { box-shadow: 0 0 14px var(--amber-glow); opacity: 0.7; }
+    }
+
+    /* ── Project List Items ───────────────────────────────────── */
+    .project-list { display: flex; flex-direction: column; gap: 2px; max-width: 640px; }
+
+    .project-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .project-row:hover { background: var(--surface2); border-color: var(--amber-dim); }
+
+    .project-row-name {
+      font-size: 14px;
+      color: var(--text-hi);
+      flex: 1;
+    }
+
+    .project-row-time {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-lo);
+    }
+
+    .project-row-star {
+      font-size: 13px;
+      color: var(--text-lo);
+      transition: color 0.15s;
+    }
+    .project-row-star.lit { color: var(--amber); }
+
+    /* ── Section Header ───────────────────────────────────────── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .section-header-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+    }
+    .section-header-line { flex: 1; height: 1px; background: var(--border); }
+
+    /* ── Quadrant Grid ────────────────────────────────────────── */
+    .quadrant-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 0;
+      width: 100%;
+      max-width: 700px;
+      height: 520px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #1c1812;
+      font-family: var(--font-mono);
+      position: relative;
+    }
+
+    /* Lined paper effect */
+    .quadrant-grid::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: repeating-linear-gradient(
+        transparent,
+        transparent 27px,
+        rgba(100, 85, 60, 0.12) 27px,
+        rgba(100, 85, 60, 0.12) 28px
+      );
+      background-size: 100% 28px;
+      background-position: 0 36px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .quadrant {
+      padding: 14px 16px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      z-index: 2;
+    }
+    .quadrant:nth-child(2), .quadrant:nth-child(4) { border-right: none; }
+    .quadrant:nth-child(3), .quadrant:nth-child(4) { border-bottom: none; }
+
+    .quadrant-title {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      color: var(--text-mid);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-color: var(--border);
+      margin-bottom: 12px;
+    }
+
+    .quadrant-item {
+      font-size: 11.5px;
+      color: var(--text-hi);
+      padding: 3px 0;
+      line-height: 1.5;
+    }
+    .quadrant-item.done {
+      text-decoration: line-through;
+      color: var(--text-lo);
+    }
+    .quadrant-item.placeholder { color: var(--text-lo); font-style: italic; }
+
+    /* ── Calendar Grid ────────────────────────────────────────── */
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+      max-width: 700px;
+    }
+    .cal-day-header {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      text-align: center;
+      padding: 6px 0;
+    }
+    .cal-day {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 6px;
+      min-height: 72px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .cal-day:hover { border-color: var(--amber-dim); background: var(--surface2); }
+    .cal-day.today { border-color: var(--amber-dim); }
+    .cal-day-num {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-lo);
+      margin-bottom: 5px;
+    }
+    .cal-day.today .cal-day-num { color: var(--amber); }
+    .cal-chip {
+      font-size: 9px;
+      background: rgba(212, 146, 30, 0.15);
+      color: var(--amber);
+      border-radius: 3px;
+      padding: 1px 5px;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cal-day.empty { background: transparent; border-color: transparent; cursor: default; }
+    .cal-day.empty:hover { background: transparent; border-color: transparent; }
+
+    /* ── Settings ─────────────────────────────────────────────── */
+    .settings-group { margin-bottom: 32px; }
+    .settings-group-title {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--amber-dim);
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(58, 52, 44, 0.4);
+    }
+    .settings-label { font-size: 13px; color: var(--text-hi); }
+    .settings-desc { font-size: 11px; color: var(--text-lo); margin-top: 2px; }
+
+    /* Toggle */
+    .toggle {
+      width: 36px; height: 20px;
+      background: var(--border);
+      border-radius: 10px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .toggle.on { background: var(--amber); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      background: var(--text-hi);
+      border-radius: 50%;
+      top: 3px; left: 3px;
+      transition: transform 0.2s;
+    }
+    .toggle.on::after { transform: translateX(16px); }
+
+    /* SVG Icons */
+    svg { display: block; }
+  </style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── Tab Rail ─────────────────────────────────────────────── -->
+  <div id="tab-rail">
+
+    <!-- Active Project -->
+    <div class="tab active" data-tab="active-project" onclick="selectTab('active-project')">
+      <div class="tab-label-collapsed">Active</div>
+      <div class="active-header">
+        <div class="tab-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <div>
+          <div class="tab-title">Active</div>
+          <div class="tab-subtitle">Current session</div>
+        </div>
+      </div>
+      <div class="tab-divider"></div>
+      <div class="tab-expanded">
+        <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-lo);margin-bottom:6px;">Now working on</div>
+        <div style="font-family:var(--font-display);font-size:15px;color:var(--text-hi);margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+          <span class="dot dot-active"></span> Gaussian Splat Renderer
+        </div>
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-lo);margin-bottom:4px;">Today</div>
+        <div style="font-family:var(--font-mono);font-size:26px;font-weight:300;color:var(--amber-glow);letter-spacing:-0.01em;margin-bottom:16px;" id="sidebar-timer">02:14:38</div>
+        <button class="btn btn-danger" style="width:100%;justify-content:center;font-size:10px;" onclick="event.stopPropagation()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+          Stop Work
+        </button>
+      </div>
+    </div>
+
+    <!-- Project List -->
+    <div class="tab idle" data-tab="projects" onclick="selectTab('projects')">
+      <div class="tab-label-collapsed">Projects</div>
+      <div class="active-header">
+        <div class="tab-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7a2 2 0 0 1 2-2h3l2 2h9a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="tab-title">Projects</div>
+          <div class="tab-subtitle">All work</div>
+        </div>
+      </div>
+      <div class="tab-divider"></div>
+      <div class="tab-expanded">
+        <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-lo);margin-bottom:10px;">5 projects</div>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <div style="font-size:12px;color:var(--text-mid);padding:4px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;"><span style="color:var(--amber);font-size:10px;">★</span>Gaussian Splat</div>
+          <div style="font-size:12px;color:var(--text-mid);padding:4px 0;border-bottom:1px solid var(--border);">Game Engine</div>
+          <div style="font-size:12px;color:var(--text-mid);padding:4px 0;border-bottom:1px solid var(--border);">Freelance — Silo</div>
+          <div style="font-size:12px;color:var(--text-lo);padding:4px 0;">+ New project…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="tab idle" data-tab="calendar" onclick="selectTab('calendar')">
+      <div class="tab-label-collapsed">Calendar</div>
+      <div class="active-header">
+        <div class="tab-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <div>
+          <div class="tab-title">Calendar</div>
+          <div class="tab-subtitle">Feb 2026</div>
+        </div>
+      </div>
+      <div class="tab-divider"></div>
+      <div class="tab-expanded">
+        <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-lo);margin-bottom:6px;">This week</div>
+        <div style="font-size:12px;color:var(--text-mid);line-height:1.8;">
+          <div>Mon · Gaussian Splat</div>
+          <div>Tue · Game Engine</div>
+          <div style="color:var(--amber);">Today · Gaussian Splat</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quadrant -->
+    <div class="tab idle" data-tab="quadrant" onclick="selectTab('quadrant')">
+      <div class="tab-label-collapsed">Tasks</div>
+      <div class="active-header">
+        <div class="tab-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>
+          </svg>
+        </div>
+        <div>
+          <div class="tab-title">Tasks</div>
+          <div class="tab-subtitle">4 quadrants</div>
+        </div>
+      </div>
+      <div class="tab-divider"></div>
+      <div class="tab-expanded">
+        <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-lo);margin-bottom:6px;">Open items</div>
+        <div style="font-size:12px;color:var(--text-mid);line-height:1.9;">
+          <div>Work · 3 tasks</div>
+          <div>Personal · 2 tasks</div>
+          <div>Health · 1 task</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spacer pushes settings to bottom -->
+    <div class="tab-spacer" id="spacer"></div>
+
+    <!-- Settings -->
+    <div class="tab idle" id="tab-settings" data-tab="settings" onclick="selectTab('settings')" style="flex:none;height:60px;">
+      <div class="tab-label-collapsed">Settings</div>
+      <div class="active-header">
+        <div class="tab-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="tab-title">Settings</div>
+          <div class="tab-subtitle">Preferences</div>
+        </div>
+      </div>
+      <div class="tab-divider"></div>
+      <div class="tab-expanded"></div>
+    </div>
+
+  </div><!-- /#tab-rail -->
+
+  <!-- ── Content Pages ─────────────────────────────────────────── -->
+  <div id="content">
+
+    <!-- Active Project Page -->
+    <div class="page active" id="page-active-project">
+      <div class="page-eyebrow">Current Session</div>
+      <div class="page-title">Gaussian Splat Renderer</div>
+      <div class="page-desc">Active since 10:04 AM · Started Feb 20, 2026</div>
+
+      <div class="timer-display" id="main-timer">02:14:38</div>
+      <div class="timer-project">
+        <span class="dot dot-active" style="margin-right:8px;"></span>
+        Session in progress
+      </div>
+
+      <div style="display:flex;gap:10px;margin-bottom:40px;">
+        <button class="btn btn-danger">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+          Stop Work
+        </button>
+        <button class="btn btn-ghost">Switch Project</button>
+      </div>
+
+      <div class="card-grid" style="max-width:540px;">
+        <div class="card">
+          <div class="card-label">Today</div>
+          <div class="card-value">02:14</div>
+          <div class="card-sub">hrs this session</div>
+        </div>
+        <div class="card">
+          <div class="card-label">This Week</div>
+          <div class="card-value">09:40</div>
+          <div class="card-sub">hrs total</div>
+        </div>
+        <div class="card">
+          <div class="card-label">All Time</div>
+          <div class="card-value">47:22</div>
+          <div class="card-sub">hrs logged</div>
+        </div>
+      </div>
+
+      <div class="section-header" style="max-width:540px;">
+        <span class="section-header-label">Session Notes</span>
+        <span class="section-header-line"></span>
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:9px;">+ Add Note</button>
+      </div>
+
+      <div style="max-width:540px;display:flex;flex-direction:column;gap:6px;">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-lo);">11:32 AM</span>
+            <div style="display:flex;gap:6px;">
+              <span style="font-size:9px;background:rgba(212,146,30,0.12);color:var(--amber);padding:1px 7px;border-radius:3px;">rendering</span>
+              <span style="font-size:9px;background:rgba(212,146,30,0.12);color:var(--amber);padding:1px 7px;border-radius:3px;">debug</span>
+            </div>
+          </div>
+          <div style="font-size:13px;color:var(--text-hi);line-height:1.55;">Working on tile-based sorting for the splat rasterizer. Depth ordering still off on overlapping splats.</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-lo);">10:12 AM</span>
+            <div style="display:flex;gap:6px;">
+              <span style="font-size:9px;background:rgba(212,146,30,0.12);color:var(--amber);padding:1px 7px;border-radius:3px;">setup</span>
+            </div>
+          </div>
+          <div style="font-size:13px;color:var(--text-hi);line-height:1.55;">Started session, reviewing yesterday's Vulkan pipeline changes before continuing.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Projects Page -->
+    <div class="page" id="page-projects">
+      <div class="page-eyebrow">All Work</div>
+      <div class="page-title">Projects</div>
+      <div class="page-desc">Select a project to view details or start a work session. Favorites always appear first.</div>
+
+      <div style="display:flex;gap:8px;margin-bottom:24px;align-items:center;">
+        <button class="btn btn-primary">+ New Project</button>
+        <div style="margin-left:auto;font-family:var(--font-mono);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-lo);">Sort:</div>
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:9px;">Last Opened</button>
+      </div>
+
+      <div class="section-header">
+        <span class="section-header-label">★ Favorites</span>
+        <span class="section-header-line"></span>
+      </div>
+      <div class="project-list" style="margin-bottom:24px;">
+        <div class="project-row">
+          <span class="dot dot-active"></span>
+          <span class="project-row-name">Gaussian Splat Renderer</span>
+          <span class="project-row-time">47h 22m</span>
+          <span class="project-row-star lit">★</span>
+        </div>
+        <div class="project-row">
+          <span class="dot dot-idle"></span>
+          <span class="project-row-name">Game Engine</span>
+          <span class="project-row-time">120h 08m</span>
+          <span class="project-row-star lit">★</span>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <span class="section-header-label">Projects</span>
+        <span class="section-header-line"></span>
+      </div>
+      <div class="project-list" style="margin-bottom:24px;">
+        <div class="project-row">
+          <span class="dot dot-idle"></span>
+          <span class="project-row-name">Freelance — Silo</span>
+          <span class="project-row-time">8h 00m</span>
+          <span class="project-row-star">☆</span>
+        </div>
+        <div class="project-row">
+          <span class="dot dot-idle"></span>
+          <span class="project-row-name">Portfolio Site</span>
+          <span class="project-row-time">3h 45m</span>
+          <span class="project-row-star">☆</span>
+        </div>
+      </div>
+
+      <div class="section-header" style="cursor:pointer;" onclick="toggleArchived()">
+        <span class="section-header-label" id="archived-toggle-label">▸ Archived</span>
+        <span class="section-header-line"></span>
+      </div>
+      <div class="project-list" id="archived-list" style="display:none;">
+        <div class="project-row" style="opacity:0.5;">
+          <span class="dot dot-idle"></span>
+          <span class="project-row-name" style="color:var(--text-mid);">Old Client Project</span>
+          <span class="project-row-time">22h 14m</span>
+          <span class="project-row-star">☆</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calendar Page -->
+    <div class="page" id="page-calendar">
+      <div class="page-eyebrow">Timetable</div>
+      <div class="page-title">February 2026</div>
+      <div class="page-desc">A record of where your time has gone. Switch between month, week, and day views.</div>
+
+      <div style="display:flex;gap:8px;margin-bottom:24px;">
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:9px;">‹ Jan</button>
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:9px;">Today</button>
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:9px;">Mar ›</button>
+        <div style="margin-left:auto;display:flex;gap:4px;">
+          <button class="btn btn-ghost" style="padding:5px 12px;font-size:9px;background:var(--surface2);">Month</button>
+          <button class="btn btn-ghost" style="padding:5px 12px;font-size:9px;">Week</button>
+          <button class="btn btn-ghost" style="padding:5px 12px;font-size:9px;">Day</button>
+        </div>
+      </div>
+
+      <div class="cal-grid">
+        <div class="cal-day-header">Sun</div><div class="cal-day-header">Mon</div><div class="cal-day-header">Tue</div>
+        <div class="cal-day-header">Wed</div><div class="cal-day-header">Thu</div><div class="cal-day-header">Fri</div>
+        <div class="cal-day-header">Sat</div>
+
+        <!-- Week 1 -->
+        <div class="cal-day empty"></div>
+        <div class="cal-day"><div class="cal-day-num">2</div><div class="cal-chip">Game Engine</div></div>
+        <div class="cal-day"><div class="cal-day-num">3</div><div class="cal-chip">Game Engine</div><div class="cal-chip">Freelance</div></div>
+        <div class="cal-day"><div class="cal-day-num">4</div></div>
+        <div class="cal-day"><div class="cal-day-num">5</div><div class="cal-chip">Gaussian Splat</div></div>
+        <div class="cal-day"><div class="cal-day-num">6</div><div class="cal-chip">Gaussian Splat</div></div>
+        <div class="cal-day"><div class="cal-day-num">7</div></div>
+
+        <!-- Week 2 -->
+        <div class="cal-day"><div class="cal-day-num">8</div></div>
+        <div class="cal-day"><div class="cal-day-num">9</div><div class="cal-chip">Game Engine</div></div>
+        <div class="cal-day"><div class="cal-day-num">10</div><div class="cal-chip">Freelance</div></div>
+        <div class="cal-day"><div class="cal-day-num">11</div><div class="cal-chip">Gaussian Splat</div></div>
+        <div class="cal-day"><div class="cal-day-num">12</div><div class="cal-chip">Gaussian Splat</div></div>
+        <div class="cal-day"><div class="cal-day-num">13</div></div>
+        <div class="cal-day"><div class="cal-day-num">14</div></div>
+
+        <!-- Week 3 -->
+        <div class="cal-day"><div class="cal-day-num">15</div></div>
+        <div class="cal-day"><div class="cal-day-num">16</div><div class="cal-chip">Gaussian Splat</div></div>
+        <div class="cal-day"><div class="cal-day-num">17</div><div class="cal-chip">Game Engine</div></div>
+        <div class="cal-day"><div class="cal-day-num">18</div><div class="cal-chip">Freelance</div><div class="cal-chip">Gaussian Splat</div></div>
+        <div class="cal-day"><div class="cal-day-num">19</div><div class="cal-chip">Gaussian Splat</div></div>
+        <div class="cal-day today"><div class="cal-day-num">20</div><div class="cal-chip">Gaussian Splat</div></div>
+        <div class="cal-day"><div class="cal-day-num">21</div></div>
+
+        <!-- Week 4 -->
+        <div class="cal-day"><div class="cal-day-num">22</div></div>
+        <div class="cal-day"><div class="cal-day-num">23</div></div>
+        <div class="cal-day"><div class="cal-day-num">24</div></div>
+        <div class="cal-day"><div class="cal-day-num">25</div></div>
+        <div class="cal-day"><div class="cal-day-num">26</div></div>
+        <div class="cal-day"><div class="cal-day-num">27</div></div>
+        <div class="cal-day"><div class="cal-day-num">28</div></div>
+      </div>
+    </div>
+
+    <!-- Quadrant Page -->
+    <div class="page" id="page-quadrant">
+      <div class="page-eyebrow">Task List</div>
+      <div class="page-title">Notebook</div>
+      <div class="page-desc">Your scratchpad. Four quadrants, no rules. Jot down everything you need to get done.</div>
+
+      <div class="quadrant-grid">
+        <div class="quadrant">
+          <div class="quadrant-title">Work</div>
+          <div class="quadrant-item done">Send invoice to client</div>
+          <div class="quadrant-item">Fix depth sort bug in renderer</div>
+          <div class="quadrant-item">Write Svelte component for Silo</div>
+          <div class="quadrant-item">Review PR from Jake</div>
+        </div>
+        <div class="quadrant">
+          <div class="quadrant-title">Personal</div>
+          <div class="quadrant-item">Call mom back</div>
+          <div class="quadrant-item done">Pick up groceries</div>
+          <div class="quadrant-item">Schedule dentist appointment</div>
+        </div>
+        <div class="quadrant">
+          <div class="quadrant-title">Health</div>
+          <div class="quadrant-item">30 min run</div>
+          <div class="quadrant-item">Refill prescription</div>
+        </div>
+        <div class="quadrant">
+          <div class="quadrant-title">Ideas</div>
+          <div class="quadrant-item">Try Bevy for next game prototype</div>
+          <div class="quadrant-item">Blog post: 3DGS rendering notes</div>
+          <div class="quadrant-item placeholder">e.g. Look into new library…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Page -->
+    <div class="page" id="page-settings">
+      <div class="page-eyebrow">Preferences</div>
+      <div class="page-title">Settings</div>
+      <div class="page-desc">Configure Chrono to work the way you do.</div>
+
+      <div class="settings-group" style="max-width:520px;">
+        <div class="settings-group-title">General</div>
+        <div class="settings-row">
+          <div><div class="settings-label">Theme</div><div class="settings-desc">Appearance of the application</div></div>
+          <button class="btn btn-ghost" style="padding:5px 14px;font-size:9px;">Dark ▾</button>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-label">Clock Format</div><div class="settings-desc">12-hour or 24-hour display</div></div>
+          <button class="btn btn-ghost" style="padding:5px 14px;font-size:9px;">12h ▾</button>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-label">Week Starts On</div><div class="settings-desc">First day shown in calendar views</div></div>
+          <button class="btn btn-ghost" style="padding:5px 14px;font-size:9px;">Sunday ▾</button>
+        </div>
+      </div>
+
+      <div class="settings-group" style="max-width:520px;">
+        <div class="settings-group-title">Sessions</div>
+        <div class="settings-row">
+          <div><div class="settings-label">Auto-stop on idle</div><div class="settings-desc">Stop session after inactivity</div></div>
+          <div class="toggle" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-label">Confirm before stopping</div><div class="settings-desc">Show confirmation dialog on stop</div></div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+
+      <div class="settings-group" style="max-width:520px;">
+        <div class="settings-group-title">Database</div>
+        <div class="settings-row">
+          <div><div class="settings-label">Connection</div><div class="settings-desc" style="color:var(--green);">● Connected — localhost:5432/chrono</div></div>
+          <button class="btn btn-ghost" style="padding:5px 14px;font-size:9px;">Edit</button>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-label">Export Data</div><div class="settings-desc">Download all sessions as CSV</div></div>
+          <button class="btn btn-ghost" style="padding:5px 14px;font-size:9px;">Export</button>
+        </div>
+      </div>
+
+      <div class="settings-group" style="max-width:520px;">
+        <div class="settings-group-title">About</div>
+        <div class="settings-row">
+          <div><div class="settings-label">Version</div></div>
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-lo);">0.1.0-dev</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /#content -->
+</div><!-- /#app -->
+
+<script>
+  // ── Tab switching ────────────────────────────────────────────
+  const TAB_MAP = {
+    'active-project': 'page-active-project',
+    'projects':       'page-projects',
+    'calendar':       'page-calendar',
+    'quadrant':       'page-quadrant',
+    'settings':       'page-settings',
+  };
+
+  const SETTINGS_HEIGHT = 60;
+
+  function selectTab(name) {
+    const tabs  = document.querySelectorAll('.tab');
+    const pages = document.querySelectorAll('.page');
+    const rail  = document.getElementById('tab-rail');
+    const spacer = document.getElementById('spacer');
+
+    // Deactivate all
+    tabs.forEach(t => { t.classList.remove('active'); t.classList.add('idle'); });
+    pages.forEach(p => p.classList.remove('active'));
+
+    // Activate target tab
+    const activeTab = document.querySelector(`[data-tab="${name}"]`);
+    if (!activeTab) return;
+    activeTab.classList.remove('idle');
+    activeTab.classList.add('active');
+
+    // Activate target page
+    const activePage = document.getElementById(TAB_MAP[name]);
+    if (activePage) activePage.classList.add('active');
+
+    // Distribute height: active tab gets a natural chunk, rest share equally
+    const railH = rail.offsetHeight;
+    const nonSettingsIdleTabs = Array.from(tabs).filter(t =>
+      t !== activeTab && t.dataset.tab !== 'settings'
+    );
+    const idleCount = nonSettingsIdleTabs.length;
+
+    if (name === 'settings') {
+      // Settings active — it gets full height, spacer hidden
+      spacer.style.display = 'none';
+      activeTab.style.height = (railH - SETTINGS_HEIGHT * 0) + 'px';
+      // other tabs share remaining
+      const remaining = railH - activeTab.offsetHeight - SETTINGS_HEIGHT * 0;
+    } else {
+      spacer.style.display = 'block';
+      // Active tab gets fixed height
+      const activeH = 260;
+      activeTab.style.height = activeH + 'px';
+      // Remaining height minus settings tab
+      const leftover = railH - activeH - SETTINGS_HEIGHT;
+      const idleH = idleCount > 0 ? Math.floor(leftover / idleCount) : 0;
+      nonSettingsIdleTabs.forEach(t => { t.style.height = idleH + 'px'; });
+      spacer.style.display = 'none'; // Flex handles it
+    }
+  }
+
+  // ── Timer ────────────────────────────────────────────────────
+  let seconds = 8078; // 02:14:38
+  function tick() {
+    seconds++;
+    const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
+    const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+    const s = String(seconds % 60).padStart(2, '0');
+    const time = `${h}:${m}:${s}`;
+    const mt = document.getElementById('main-timer');
+    const st = document.getElementById('sidebar-timer');
+    if (mt) mt.textContent = time;
+    if (st) st.textContent = time;
+  }
+  setInterval(tick, 1000);
+
+  // ── Archived toggle ──────────────────────────────────────────
+  function toggleArchived() {
+    const list = document.getElementById('archived-list');
+    const label = document.getElementById('archived-toggle-label');
+    const open = list.style.display === 'flex' || list.style.display === '';
+    if (open && list.style.display !== 'none') {
+      list.style.display = 'none';
+      label.textContent = '▸ Archived';
+    } else {
+      list.style.display = 'flex';
+      list.style.flexDirection = 'column';
+      list.style.gap = '2px';
+      label.textContent = '▾ Archived';
+    }
+  }
+
+  // Initial layout
+  selectTab('active-project');
+</script>
+</body>
+</html>
